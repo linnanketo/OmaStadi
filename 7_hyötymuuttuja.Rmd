@@ -118,7 +118,7 @@ osbu2023 <- osbu2023[!is.na(osbu2023$id), ]
 # Osa 3: Yhdistetään osa-alueisiin niiden HRTT-tunnus.
 
 ```{r}
-# Haetaan osa-alueet ja niiden keskipisteet. Koodi keskipisteiden tuottamiseen on tiedostossa keskipisteet.rmd.
+# Haetaan osa-alueet ja niiden keskipisteet.
 
 osa_alueet <- read.csv("/Users/henri/Library/CloudStorage/OneDrive-UniversityofHelsinki/Helsingin yliopisto/Maisteriseminaari/Aineisto/keskipisteet.csv",
                      header = TRUE)
