@@ -1,0 +1,296 @@
+---
+title: "PX-Web API, osa 4"
+author: "Henri Linnanketo"
+date: "2024-08-04"
+output:
+  html_document: default
+  word_document: default
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r include=FALSE}
+# Ladataan paketit.
+
+library(pxweb)
+library(dplyr)
+library(tidyr)
+
+# Tehdään kysely.
+
+kysely <- 
+  list("Alue"=c("0910000000",
+                "0911101010",
+          "0911101020",
+          "0911101080",
+          "0911102030",
+          "0911102050",
+          "0911102060",
+          "0911102070",
+          "0911102090",
+          "0911102204",
+          "0911102520",
+          "0911102531",
+          "0911103040",
+          "0911103130",
+          "0911103201",
+          "0911103202",
+          "0911103203",
+          "0911104140",
+          "0911105310",
+          "0911105311",
+          "0911105312",
+          "0911105313",
+          "0911105314",
+          "0912201150",
+          "0912201160",
+          "0912201161",
+          "0912201162",
+          "0912201180",
+          "0912202301",
+          "0912202302",
+          "0912202303",
+          "0912202304",
+          "0912202305",
+          "0912202306",
+          "0912203291",
+          "0912203292",
+          "0912203293",
+          "0912203294",
+          "0912204320",
+          "0912204461",
+          "0912204462",
+          "0912204463",
+          "0912204464",
+          "0912204465",
+          "0912205331",
+          "0912205332",
+          "0912205333",
+          "0912205334",
+          "0912205335",
+          "0912205336",
+          "0913301100",
+          "0913301101",
+          "0913301102",
+          "0913301103",
+          "0913301104",
+          "0913301111",
+          "0913301112",
+          "0913301113",
+          "0913302121",
+          "0913302122",
+          "0913303210",
+          "0913303211",
+          "0913303212",
+          "0913303213",
+          "0913303220",
+          "0913304171",
+          "0913304172",
+          "0913304173",
+          "0913304174",
+          "0913305231",
+          "0913305232",
+          "0913305240",
+          "0913305250",
+          "0913305260",
+          "0913305270",
+          "0914401281",
+          "0914401282",
+          "0914401283",
+          "0914401286",
+          "0914402341",
+          "0914403351",
+          "0914403352",
+          "0914403354",
+          "0914404284",
+          "0914404285",
+          "0914404287",
+          "0914405342",
+          "0914405353",
+          "0915501361",
+          "0915501362",
+          "0915501363",
+          "0915501364",
+          "0915501383",
+          "0915501386",
+          "0915502370",
+          "0915503381",
+          "0915503382",
+          "0915503384",
+          "0915503385",
+          "0915503391",
+          "0915503392",
+          "0915504401",
+          "0915504403",
+          "0915505402",
+          "0915505411",
+          "0915505412",
+          "0915505413",
+          "0915505415",
+          "0915506414",
+          "0916601190",
+          "0916601420",
+          "0916602431",
+          "0916602432",
+          "0916602433",
+          "0916602434",
+          "0916602440",
+          "0916603480",
+          "0916603491",
+          "0916603492",
+          "0916603493",
+          "0916603494",
+          "0916603495",
+          "0916603500",
+          "0916603510",
+          "0916603532",
+          "0917701451",
+          "0917701452",
+          "0917701453",
+          "0917701455",
+          "0917701456",
+          "0917701457",
+          "0917702454",
+          "0917703471",
+          "0917703472",
+          "0917703473",
+          "0917703474",
+          "0917703475",
+          "0917704541",
+          "0917704542",
+          "0917704543",
+          "0917704544",
+          "0917704545",
+          "0917704546",
+          "0917704547",
+          "0917704548",
+          "0917704549",
+          "0918801550",
+          "0918801560",
+          "0918801570",
+          "0918801580",
+          "0918801591",
+          "0918801592",
+          "0919999999"),
+       "Pääasiallinen toiminta"=c("ALL",
+                                  "11+12",
+                                  "11",
+                                  "12",
+                                  "21-99",
+                                  "21",
+                                  "22+24+29",
+                                  "25+99"),
+       "Sukupuoli"=c("ALL"),
+       "Ikä"=c("ALL"),
+       "Vuosi"=c("2022"))
+
+# Haetaan data ja muutetaan tietokehikkoon.
+
+url <- c("https://stat.hel.fi:443/api/v1/fi/Aluesarjat/tyo/tyom/alu_tyom_003s.px")
+
+data <- pxweb_get(url,
+                  query = kysely)
+
+pääas_toiminta <- as.data.frame(data,
+                              column.name.type = "text",
+                              variable.value.type = "text")
+
+# Tarkemmin datasta ja muuttujista.
+
+# px_data_comments <- pxweb_data_comments(data)
+# px_data_comments_df <- as.data.frame(px_data_comments)
+
+# Sitaatti.
+
+# pxweb_cite(px_data)
+```
+
+
+```{r}
+# Nimetään yksi muuttuja uudelleen.
+
+print(names(pääas_toiminta))
+
+pääas_toiminta <- pääas_toiminta %>%
+  rename(Yhteensä = "Väestö 31.12.")
+
+# Muutetaan pääasiallista toimintaa kuvaavat muuttujat sarakkeiksi.
+
+pääas_toiminta <- pääas_toiminta %>%
+  pivot_wider(
+    names_from = `Pääasiallinen toiminta`,
+    values_from = `Yhteensä`,
+    values_fill = list(Yhteensä = 0))
+
+pääas_toiminta <- pääas_toiminta %>%
+  rename(Yhteensä = "Koko väestö")
+
+# Poistetaan epäolennaiset muuttujat.
+
+pääas_toiminta <- pääas_toiminta %>% 
+  select(-c(Sukupuoli, Ikä))
+```
+
+
+```{r}
+# Oma kehikko työvoiman ja työvoiman ulkopuolella olevien jakaumista.
+
+työvoima <- pääas_toiminta %>% 
+  select(c(1:7))
+
+# Varmistetaan vielä, että muuttujien yhteenlasketut arvot vastaavat Yhteensä-sarakkeen arvoa.
+
+työvoima <- työvoima %>%
+  mutate(Yhteensä2 = Työvoima + `Työvoiman ulkopuolella olevat`) 
+
+työvoima <- työvoima %>%
+  mutate(Match = (Yhteensä == Yhteensä2))
+
+print(työvoima)
+
+# Muutetaan frekvenssit suhteellisiksi osuuksiksi.
+
+työvoima <- työvoima %>%
+  mutate(Työvoima = round((Työvoima / `Yhteensä`) * 100, 1))
+
+työvoima <- työvoima %>%
+  mutate(`Työvoiman ulkopuolella olevat` = round((`Työvoiman ulkopuolella olevat` / `Yhteensä`) * 100, 1))
+
+työvoima <- työvoima %>% 
+  mutate(Yhteensä = round((`Työvoima` + `Työvoiman ulkopuolella olevat`), 0))
+
+# Otetaan pois ylimääräisiä muuttujia.
+
+työvoima <- työvoima %>%
+  select(-c(5,
+            6,
+            8,
+            9))
+
+print(työvoima)
+
+# Otetaan työvoimaa käsittelevät muuttujat pois alkuperäisestä tietokehikosta, jolloin jäljelle jäävät opiskelijat, lapset ja eläkeläiset.
+
+print(names(pääas_toiminta))
+
+pääas_toiminta <- pääas_toiminta %>%
+  select(-c(4:7))
+```
+
+
+```{r}
+# Muutetaan taas frekvenssit suhteellisiksi osuuksiksi.
+
+print(names(pääas_toiminta))
+
+pääas_toiminta <- pääas_toiminta %>%
+  mutate(`0-14-vuotiaat`= round((`0-14-vuotiaat` / `Yhteensä`) * 100, 1))
+
+pääas_toiminta <- pääas_toiminta %>%
+  mutate(`Opiskelijat, koululaiset, varus- ja siviilipalvelu`= round((`Opiskelijat, koululaiset, varus- ja siviilipalvelu` / `Yhteensä`) * 100, 1))
+
+pääas_toiminta <- pääas_toiminta %>%
+  mutate(`Eläkeläiset ja muut`= round((`Eläkeläiset ja muut` / `Yhteensä`) * 100, 1))
+
+head(pääas_toiminta)
+```

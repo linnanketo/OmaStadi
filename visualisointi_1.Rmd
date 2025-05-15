@@ -1,0 +1,179 @@
+---
+title: "OmaStadi-visualisointi, osa 1"
+author: "Henri Linnanketo"
+date: "2025-01-19"
+output:
+  html_document: default
+  word_document: default
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+# Alkutoimet
+
+```{r include=FALSE}
+# Ladataan paketteja.
+
+library(helsinki)
+library(dplyr)
+library(ggplot2)
+library(sf)
+library(viridis)
+library(leaflet)
+
+# Määritellään halutessa OmaStadin värit.
+
+OS_beige <- rgb(253, 243, 191, maxColorValue = 255)
+OS_harmaa <- rgb(102, 102, 102, maxColorValue = 255)
+OS_kelt <- rgb(248, 234, 136, maxColorValue = 255)
+OS_kulta <- rgb(244, 199, 76, maxColorValue = 255)
+OS_sininen <- rgb(234, 234, 251, maxColorValue = 255)
+```
+
+
+# Helsingin ruudukot
+
+```{r include=FALSE}
+# Ladataan Helsingin rajat.
+# HUOM! Tätä ennen osbu2023- ja osa-alueiden tietokehikot tulee olla ladattuna seiskatiedostosta!
+
+input_url <- "https://kartta.hsy.fi/geoserver/wfs"
+feature_of_interest <- "taustakartat_ja_aluejaot:seutukartta_kunta_2021"
+
+# Ladataan Helsingin alueen rajat, jotka suodatetaan aineistosta kuntakoodilla 091.
+
+rajat <- get_feature(base.url = input_url, typename = feature_of_interest)
+
+rajat <- rajat %>% 
+  filter(kunta == "091") %>% 
+  slice(1)
+
+# Avataan matka-aikamatriisi ja suodatetaan kaupungin rajojen perusteella Helsingin sisälle jäävät ruudukot.
+
+polygonit <- st_read("/Users/henri/Documents/Helsinki_Travel_Time_Matrix_2023_grid.gpkg",
+                      layer = "Helsinki_Travel_Time_Matrix_2023_grid")
+
+st_crs(polygonit)
+st_crs(rajat)
+
+polygonit <- st_transform(polygonit, st_crs(rajat))
+rajat_geom <- st_geometry(rajat)
+
+ruudukot_helsinki <- polygonit[st_within(polygonit,
+                                         rajat_geom,
+                                         sparse = FALSE)[, 1], ]
+
+# Tehdään kolmiluokkainen faktorimuuttuja, jolla voidaan värittää matriisi eri väreillä. 
+
+ruudukot_helsinki <- ruudukot_helsinki %>%
+  mutate(
+    kategoria = factor(
+      case_when(
+        id %in% osbu2023$id & id %in% osa_alueet$id ~ "Sekä että",
+        id %in% osbu2023$id ~ "OmaStadi-toteutus",
+        id %in% osa_alueet$id ~ "Osa-alueen keskipiste",
+        TRUE ~ "NA")))
+```
+
+
+# Matriisin visualisointi
+
+```{r}
+# Helsingin kaupungin rajat, jotka on suodatettu seutukartoista kuntakoodilla 091.
+
+if (exists("rajat")) {
+  if (!is.null(rajat)) {
+    plot(rajat$geom)
+  }
+}
+
+# Helsingin sisälle jäävät matka-aikamatriisin ruudukot.
+
+if (exists("ruudukot_helsinki")) {
+  if (!is.null(ruudukot_helsinki)) {
+    plot(ruudukot_helsinki$geom)
+  }
+}
+
+# Visualisointi eri väreillä.
+
+ggplot(data = ruudukot_helsinki) +
+  geom_sf(aes(fill = kategoria)) +  # Pohjakarttana polygonit, jotka täytetään faktorimuuttujan arvoilla
+  scale_fill_manual(
+    values = c(
+      "OmaStadi-toteutus" = "red",
+      "Osa-alueen keskipiste" = "gold"),
+    na.value = "springgreen3",
+    drop = TRUE) +  # Poistetaan NA-arvo legendasta
+  theme_void() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    panel.border = element_blank()) +
+  labs(
+    title = "OmaStadi-toteutusten sijoittuminen matka-aikamatriisille",
+    fill = "Selitys")
+
+# Ilman otsikkoa.
+
+ggplot(data = ruudukot_helsinki) +
+  geom_sf(aes(fill = kategoria)) +  # Pohjakarttana polygonit, jotka täytetään faktorimuuttujan arvoilla
+  scale_fill_manual(
+    values = c(
+      "OmaStadi-toteutus" = "red",
+      "Osa-alueen keskipiste" = "gold",
+      "Sekä että" = "darkblue"),
+    na.value = "springgreen3",
+    drop = TRUE) +  # Poistetaan NA-arvo legendasta
+  theme_void() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank(),
+    panel.border = element_blank()) +
+  labs(
+    title = NULL,
+    fill = "Selitys")
+```
+
+
+# Karttojen visualisointi.
+
+```{r}
+# Ensin peruskartta Leaflet-paketilla.
+
+leaflet() %>%
+  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(data = osbu2023,
+                   popup = ~Ehdotus,
+                   radius = 10,
+                   color = "beige",
+                   weight = 1,
+                   opacity = 1,
+                   fill = TRUE,
+                   fillColor = "red",
+                   fillOpacity = 1,
+                   stroke = TRUE,
+                   label = ~Ehdotus)
+
+# Sitten kartta, jossa pallojen koko kuvaa budjetin kasvamista.
+
+leaflet() %>%
+  addTiles() %>%
+  addProviderTiles(providers$CartoDB.Positron) %>%
+  addCircleMarkers(data = osbu2023,
+                   popup = ~Ehdotus,
+                   radius = ~Budjetti / max(osbu2023$Budjetti) * 25, # Alunperin 25.
+                   color = "beige",
+                   weight = 1,
+                   opacity = 1,
+                   fill = TRUE,
+                   fillColor = "red",
+                   fillOpacity = 1,
+                   stroke = TRUE,
+                   label = ~Ehdotus)
+```
+
