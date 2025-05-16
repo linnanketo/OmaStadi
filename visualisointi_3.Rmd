@@ -1,0 +1,297 @@
+---
+title: "OmaStadi-visualisointi, osa 3"
+author: "Henri Linnanketo"
+date: "2025-03-16"
+output:
+  html_document: default
+  word_document: default
+editor_options: 
+  chunk_output_type: inline
+---
+
+# Alkutoimenpiteet
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(forcats)
+library(ggpubr)
+library(MetBrewer)
+
+osbu2023 <- read.csv("/Users/henri/Library/CloudStorage/OneDrive-UniversityofHelsinki/Helsingin yliopisto/Maisteriseminaari/Aineisto/osbu2023.csv",
+                 header = TRUE)[, -1]
+
+osbu2023 <- osbu2023 %>% 
+  select(1:6, 10:11, 14) %>% 
+  mutate(Vastuutaho = case_when(
+    grepl("KASKO", Vastuutaho) ~ "KASKO",
+    grepl("KUVA", Vastuutaho) ~ "KUVA",
+    grepl("KYMP", Vastuutaho) ~ "KYMP",
+    TRUE ~ "Other"
+  ))
+
+osbu2023 <- osbu2023 %>%
+  mutate_at(vars(Budjetti,
+                 Äänet,
+                 Edistyminen),
+            as.numeric) %>% 
+  mutate_at(vars(ID,
+                 Suurpiiri,
+                 Teema,
+                 Tilanne,
+                 Vastuutaho),
+            as.factor) %>% 
+  mutate_at(vars(Ehdotus),
+            as.character)
+
+# Määritetään OmaStadi-värit.
+
+OS_beige <- rgb(253, 243, 191, maxColorValue = 255)
+OS_harmaa <- rgb(102, 102, 102, maxColorValue = 255)
+OS_kelt <- rgb(248, 234, 136, maxColorValue = 255)
+OS_kulta <- rgb(244, 199, 76, maxColorValue = 255)
+OS_sininen <- rgb(234, 234, 251, maxColorValue = 255)
+
+# Katsotaan ja tallennetaan teemat objektiksi.
+
+teemat <- table(osbu2023$Teema)
+teemat <- sort(teemat,
+               decreasing = FALSE)
+
+print(teemat, digits = 2)
+
+teemat <- table(osbu2023$Teema)
+teemat <- sort(teemat, decreasing = FALSE)
+teemat <- as.data.frame.table(teemat)
+colnames(teemat) <- c("Teema", "Määrä")
+teemat$Määrä <- as.numeric(teemat$Määrä)
+
+# Katsotaan ja tallennetaan suurpiirit objektiksi.
+
+suurpiirit <- table(osbu2023$Suurpiiri)
+suurpiirit <- sort(suurpiirit,
+               decreasing = FALSE)
+
+print(suurpiirit, digits = 2)
+
+suurpiirit <- as.data.frame(suurpiirit)
+colnames(suurpiirit) <- c("Suurpiiri", "Määrä")
+```
+
+
+# Yksinkertaisia tunnuslukuja
+
+```{r}
+table(osbu2023$Vastuutaho)
+
+taulukko1 <- table(osbu2023$Vastuutaho)
+taulukko1 <- prop.table(taulukko1) * 100
+taulukko1 <- sort(taulukko1,
+                  decreasing = TRUE)
+
+# Eniten ehdotuksia tuli keskisestä ja eteläisestä suurpiiristä, vähiten pohjoisesta ja kaakkoisesta.
+
+print(taulukko1, 
+      digits = 2)
+```
+
+
+# Pylväskartta teemoista
+
+```{r}
+# Piirretään graafi
+
+ggplot(teemat, aes(x = Teema, y = Määrä)) +
+  geom_bar(stat = "identity", fill = "deepskyblue", color = "white") +
+  geom_text(aes(label = Määrä), hjust = -0.75, color = "black") +
+  labs(title = NULL,
+       x = "Teemat",
+       y = "Määrä") +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 20), breaks = seq(0, 20, by = 5),
+                     expand = expansion(mult = c(0.01, 0.05)),
+                     labels = function(x) ifelse(x %in% c(5, 10, 15, 20), x, ""))
+
+# Tuunataan
+
+ggplot(teemat, aes(x = Teema, y = Määrä)) +
+  geom_bar(stat = "identity", fill = OS_kulta, color = "white") +
+  geom_text(aes(label = Määrä), hjust = -0.75, color = "black") +
+  labs(title = NULL,
+       x = "Teemat",
+       y = "Määrä") +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 18), breaks = seq(0, 18, by = 5),
+                     expand = expansion(mult = c(0.01, 0.05)),
+                     labels = function(x) ifelse(x %in% c(5, 10, 15, 17), x, ""))
+
+#ggsave("plot34.png", width = 6, height = 4)
+
+```
+
+
+# Pylväskartta suurpiireistä
+
+```{r}
+ggplot(suurpiirit, aes(x = Suurpiiri, y = Määrä)) +
+  geom_bar(stat = "identity", fill = OS_kulta, color = "white") +
+  geom_text(aes(label = Määrä), hjust = -0.75, color = "black") +
+  labs(title = NULL,
+       x = "Suurpiirit",
+       y = "Määrä") +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 2),
+                     expand = expansion(mult = c(0.01, 0.05)),
+                     labels = function(x) ifelse(x %in% c(2, 4, 6, 8, 10), x, ""))
+```
+
+
+# Pylväskuvioita teemoista ja suurpiireistä, osa 1: Esivalmistelut
+
+```{r}
+# Create a summary table of counts by Suurpiiri and Teema
+
+teemat_summary <- osbu2023 %>%
+  group_by(Teema, Suurpiiri) %>%
+  summarise(Määrä = n(), .groups = "drop")  # Count occurrences by Teema and Suurpiiri
+
+# Reorder Suurpiiri based on the total count (Määrä) in ascending order (least frequent first)
+
+teemat_summary$Suurpiiri <- factor(teemat_summary$Suurpiiri, 
+                                   levels = teemat_summary %>%
+                                             group_by(Suurpiiri) %>%
+                                             summarise(total = sum(Määrä)) %>%
+                                             arrange(total) %>%
+                                             pull(Suurpiiri))
+
+# Define the manual order for Teema.
+
+manual_order <- c("Puistot ja luonto",
+                  "Ulkoilu ja liikunta",
+                  "Rakennettu ympäristö", 
+                  "Hyvinvointi",
+                  "Kulttuuri",
+                  "Yhteisöllisyys", 
+                  "Oppiminen ja osaaminen",
+                  "Ekologisuus")
+
+# Reverse the manual order
+
+manual_order_rev <- rev(manual_order)
+
+# Set Teema as a factor with the reversed order
+
+teemat_summary$Teema <- factor(teemat_summary$Teema, levels = manual_order_rev)
+
+suurpiiri_summary <- teemat_summary %>%
+  group_by(Suurpiiri) %>%
+  summarise(Summa = sum(Määrä))
+```
+
+
+# Pylväskuvioita teemoista ja suurpiireistä, osa 2: Grafiikat
+
+```{r}
+# Nämä ok, älä muuta!
+
+kuva_1 <- ggplot(teemat, aes(x = Teema, y = Määrä)) +
+  geom_bar(stat = "identity",
+           fill = OS_kulta,
+           color = "white") +
+  geom_text(aes(label = Määrä),
+            hjust = -0.75,
+            color = "black",
+            size = 3) +
+  labs(title = NULL,
+       x = "Teemat",
+       y = NULL) +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 18),
+                     breaks = seq(0, 18, by = 5),
+                     expand = expansion(mult = c(0.01, 0.05)),
+                     labels = function(x) ifelse(x %in% c(5, 10, 15, 17), x, ""))
+
+kuva_2 <- ggplot(teemat_summary, aes(x = Suurpiiri, y = Määrä, fill = Teema)) +
+  geom_bar(stat = "identity",
+           color = "white") +  
+  geom_text(data = suurpiiri_summary, 
+            aes(x = Suurpiiri, y = Summa, label = Summa), 
+            hjust = -0.75, color = "black", size = 3, 
+            inherit.aes = FALSE) +
+  labs(title = NULL,
+       x = "Suurpiirit",
+       y = NULL) +
+  coord_flip() +  
+  theme_classic() +
+  theme(
+    legend.key.size = unit(0.4, "cm"),  
+    legend.text = element_text(size = 6),  
+    legend.title = element_text(size = 8)) +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 5),
+                     expand = expansion(mult = c(0.01, 0.05)),
+                     labels = function(x) ifelse(x %in% c(5, 10), x, "")) +  
+  scale_fill_manual(values = met.brewer("VanGogh2"))
+
+ggarrange(kuva_1,
+          kuva_2, 
+          labels = c(NULL, NULL),
+          ncol = 1, nrow = 2)
+
+#ggsave("plot_135.png", width = 5, height = 4)  # Leveys määritelty hyväksi
+```
+
+
+```{r}
+# Samat pylväät laitettuna kiinni x-akseliin.
+
+kuva_3 <- ggplot(teemat, aes(x = Teema, y = Määrä)) +
+  geom_bar(stat = "identity",
+           fill = OS_kulta,
+           color = "white") +
+  geom_text(aes(label = Määrä),
+            hjust = -0.75,
+            color = "black",
+            size = 3) +
+  labs(title = NULL,
+       x = "Teemat",
+       y = "Määrä") +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(limits = c(0, 20),
+                     breaks = seq(0, 20, by = 5),
+                     expand = expansion(mult = c(0)),
+                     labels = function(x) ifelse(x %in% c(5, 10, 15, 20), x, ""))
+
+kuva_4 <- ggplot(teemat_summary, aes(x = Suurpiiri, y = Määrä, fill = Teema)) +
+  geom_bar(stat = "identity",
+           color = "white") +  
+  geom_text(data = suurpiiri_summary, 
+            aes(x = Suurpiiri, y = Summa, label = Summa), 
+            hjust = -0.75, color = "black", size = 3, 
+            inherit.aes = FALSE) +
+  labs(title = NULL,
+       x = "Suurpiirit",
+       y = "Määrä") +
+  coord_flip() +  
+  theme_classic() +
+  theme(
+    legend.key.size = unit(0.4, "cm"),  
+    legend.text = element_text(size = 6),  
+    legend.title = element_text(size = 8)) +
+  scale_y_continuous(limits = c(0, 10), breaks = seq(0, 10, by = 5),
+                     expand = expansion(mult = c(0)),
+                     labels = function(x) ifelse(x %in% c(5, 10), x, "")) +  
+  scale_fill_manual(values = met.brewer("VanGogh2"))
+
+ggarrange(kuva_3,
+          kuva_4, 
+          labels = c(NULL, NULL),
+          ncol = 1, nrow = 2)
+
+#ggsave("plot_135.png", width = 5, height = 4)  # Leveys määritelty hyväksi
+```
+
